@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DevOps CI/CD Demo App</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">⚙</span>
+      <span>DevOps Pipeline Demo</span>
+    </div>
+    <div class="nav-links">
+      <a href="#pipeline">Pipeline</a>
+      <a href="#stack">Tech Stack</a>
+      <a href="#metrics">Live Metrics</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-content">
+      <div class="status-badge">
+        <span class="pulse"></span>
+        <span>Live &amp; Deployed</span>
+      </div>
+      <h1>CI/CD Pipeline<br/><span class="accent">Automation</span></h1>
+      <p class="hero-sub">Industry-oriented cloud deployment pipeline with GitHub Actions, Docker, and AWS EC2.</p>
+      <div class="hero-buttons">
+        <a href="/health" class="btn btn-primary" target="_blank">Health Check ↗</a>
+        <a href="/api/info" class="btn btn-secondary" target="_blank">API Info ↗</a>
+      </div>
+    </div>
+    <div class="hero-graphic">
+      <div class="pipeline-visual">
+        <div class="pipe-step active" data-step="1">
+          <div class="step-icon">📝</div>
+          <div class="step-label">Code</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step active" data-step="2">
+          <div class="step-icon">🔍</div>
+          <div class="step-label">Test</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step active" data-step="3">
+          <div class="step-icon">🐳</div>
+          <div class="step-label">Build</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step active" data-step="4">
+          <div class="step-icon">📦</div>
+          <div class="step-label">Push</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step active" data-step="5">
+          <div class="step-icon">🚀</div>
+          <div class="step-label">Deploy</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="pipeline" class="section">
+      <h2 class="section-title">Pipeline Stages</h2>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon">🔧</div>
+          <h3>Source Control</h3>
+          <p>Git + GitHub for version control. Every push triggers the CI/CD pipeline automatically via webhook.</p>
+          <div class="card-tag">GitHub</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">✅</div>
+          <h3>Automated Testing</h3>
+          <p>Unit tests run on every commit. Build fails fast if any test fails, preventing broken code from deploying.</p>
+          <div class="card-tag">GitHub Actions</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🐳</div>
+          <h3>Docker Build</h3>
+          <p>Application is containerized using Docker. Ensures consistent environments from dev to production.</p>
+          <div class="card-tag">Docker</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📦</div>
+          <h3>Registry Push</h3>
+          <p>Docker images are tagged and pushed to Docker Hub. Image versioning with git SHA for traceability.</p>
+          <div class="card-tag">Docker Hub</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">☁️</div>
+          <h3>Cloud Deploy</h3>
+          <p>Zero-downtime deployment to AWS EC2 via SSH. Rolling updates with automatic rollback on failure.</p>
+          <div class="card-tag">AWS EC2</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <h3>Monitoring</h3>
+          <p>Health checks, uptime monitoring, and application logs. Alerts on deployment failures.</p>
+          <div class="card-tag">Shell Scripts</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stack" class="section section-dark">
+      <h2 class="section-title">Tech Stack</h2>
+      <div class="stack-grid">
+        <div class="stack-item"><span class="stack-icon">🐧</span><span>Linux Ubuntu</span></div>
+        <div class="stack-item"><span class="stack-icon">🌿</span><span>Git</span></div>
+        <div class="stack-item"><span class="stack-icon">🐙</span><span>GitHub</span></div>
+        <div class="stack-item"><span class="stack-icon">⚡</span><span>GitHub Actions</span></div>
+        <div class="stack-item"><span class="stack-icon">🐳</span><span>Docker</span></div>
+        <div class="stack-item"><span class="stack-icon">☁️</span><span>AWS EC2</span></div>
+        <div class="stack-item"><span class="stack-icon">🟢</span><span>Node.js</span></div>
+        <div class="stack-item"><span class="stack-icon">🔷</span><span>Shell Scripts</span></div>
+      </div>
+    </section>
+
+    <section id="metrics" class="section">
+      <h2 class="section-title">Live App Metrics</h2>
+      <div class="metrics-grid" id="metrics-container">
+        <div class="metric-card">
+          <div class="metric-label">Status</div>
+          <div class="metric-value" id="metric-status">Loading...</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Version</div>
+          <div class="metric-value" id="metric-version">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Environment</div>
+          <div class="metric-value" id="metric-env">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Uptime</div>
+          <div class="metric-value" id="metric-uptime">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Hostname</div>
+          <div class="metric-value" id="metric-host">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Last Checked</div>
+          <div class="metric-value" id="metric-time">—</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:1.5rem">
+        <button class="btn btn-primary" onclick="loadMetrics()">Refresh Metrics</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>CI/CD Pipeline Demo Project &nbsp;|&nbsp; Built with Node.js, Docker, GitHub Actions &amp; AWS EC2</p>
+    <p class="footer-sub">T. Lokeshwari &nbsp;|&nbsp; Agni College of Technology</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

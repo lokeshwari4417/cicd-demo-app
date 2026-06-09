@@ -1,0 +1,205 @@
+# ============================================================
+#  GitHub Actions - CI/CD Pipeline
+#  File: .github/workflows/cicd.yml
+#
+#  PIPELINE STAGES:
+#  1. test    → Install deps, run tests
+#  2. build   → Build Docker image
+#  3. push    → Push to Docker Hub
+#  4. deploy  → SSH into EC2, pull and restart container
+# ============================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+# Global environment variables
+env:
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/cicd-demo-app
+  APP_VERSION: ${{ github.sha }}
+
+jobs:
+
+  # ──────────────────────────────────────────────
+  # JOB 1: Run Tests
+  # ──────────────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./app
+        run: npm test
+
+      - name: Upload test coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: app/coverage/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────
+  # JOB 2: Build & Push Docker Image
+  # Only runs on push to main/master (not PRs)
+  # ──────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test  # Only runs if tests pass
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: ./app/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+
+      - name: Image digest summary
+        run: |
+          echo "## Docker Image Published 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.DOCKER_IMAGE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+
+  # ──────────────────────────────────────────────
+  # JOB 3: Deploy to AWS EC2
+  # ──────────────────────────────────────────────
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push  # Only runs if build succeeds
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    environment: production  # Requires manual approval (optional)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # ---- Zero-downtime deployment script ----
+            set -e
+
+            IMAGE="${{ env.DOCKER_IMAGE }}:latest"
+            CONTAINER_NAME="cicd-demo-app"
+            PORT="3000"
+
+            echo "========================================"
+            echo " Starting Deployment"
+            echo " Image   : $IMAGE"
+            echo " Time    : $(date)"
+            echo "========================================"
+
+            # Step 1: Pull latest image
+            echo "[1/5] Pulling latest Docker image..."
+            docker pull $IMAGE
+
+            # Step 2: Stop old container gracefully
+            echo "[2/5] Stopping old container (if running)..."
+            docker stop $CONTAINER_NAME 2>/dev/null || echo "No container to stop"
+
+            # Step 3: Remove old container
+            echo "[3/5] Removing old container..."
+            docker rm $CONTAINER_NAME 2>/dev/null || echo "No container to remove"
+
+            # Step 4: Start new container
+            echo "[4/5] Starting new container..."
+            docker run -d \
+              --name $CONTAINER_NAME \
+              --restart unless-stopped \
+              -p $PORT:3000 \
+              -e NODE_ENV=production \
+              -e APP_VERSION="${{ github.sha }}" \
+              --log-driver json-file \
+              --log-opt max-size=10m \
+              --log-opt max-file=3 \
+              $IMAGE
+
+            # Step 5: Health check
+            echo "[5/5] Waiting for health check..."
+            sleep 8
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT/health)
+            if [ "$HTTP_STATUS" == "200" ]; then
+              echo "✅ Deployment successful! App is healthy (HTTP $HTTP_STATUS)"
+            else
+              echo "❌ Health check failed! HTTP status: $HTTP_STATUS"
+              docker logs $CONTAINER_NAME --tail=50
+              exit 1
+            fi
+
+            # Clean up unused images
+            docker image prune -f
+
+            echo "========================================"
+            echo " Deployment Complete!"
+            echo "========================================"
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## Deployment Successful 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Check logs for details." >> $GITHUB_STEP_SUMMARY
