@@ -14,10 +14,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - name: Install dependencies
-        run: cd app && npm ci
-      - name: Run tests
-        run: cd app && npm test
+      - name: Install and test
+        run: |
+          cd app
+          npm ci
+          npm test
 
   build:
     name: Build & Push Docker Image
@@ -32,5 +33,6 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/cicd-demo-app:latest ./app
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/cicd-demo-app:latest
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/cicd-demo-app:latest
+          docker build -t $IMAGE app
+          docker push $IMAGE
